@@ -5,7 +5,7 @@ delete(out);
 
 %General matlab clearing
 clc; close all; clear variables
-addpath('..\tensegrityObjects')
+
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters
 rad = 0.0075;         % Radius of bars in plot in meters
@@ -13,8 +13,8 @@ N =12 ;                % Number of tetrahedrons
 
 tspan =0.05;          % time between plot updates in seconds
 delT = 0.0005;         % timestep for dynamic sim in seconds
-K = 20000;             %outer rim string stiffness in Newtons/meter
-c = 6000;             % damping constant, too lazy to figure out units.
+K = 10000;             %outer rim string stiffness in Newtons/meter
+c = 3000;             % damping constant, too lazy to figure out units.
 % set by hand waving until model looks reasonable
 lims = 4/30*3.5*N/5;  % Axes limits for plotting some arbitrary
 % scaling to fit axes as you increase the

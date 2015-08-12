@@ -4,7 +4,7 @@ out = timerfind;
 delete(out);
 
 %General matlab clearing
-clc; close all; clear variables
+clc; close all; clear all
 addpath('..\tensegrityObjects')
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters

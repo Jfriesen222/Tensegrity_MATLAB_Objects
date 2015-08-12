@@ -363,7 +363,7 @@ classdef TensegrityStructure < handle
                 xyDotMag = reshape(xyDotMag,nUKF,[]).';
                 xyDot = reshape(xyDot,2*nUKF,[])';
                 frictionDensity =  -0.5*normForces./xyDotMag;
-                frictionDensity(xyDotMag < 0.00001) = 0;
+                frictionDensity(xyDotMag < 0.000001) = 0;
                 tangentForces = xyDot.*frictionDensity(:,Gindex);
                 groundForces = [tangentForces normForces];
                 groundForces = groundForces(:,fIndex);
