@@ -186,15 +186,29 @@ classdef TensegrityStructure < handle
         
         %%%%%%%%%%%%%%%%%%% Dynamics Functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function dynamicsUpdate(obj,tspan,y0)
+            persistent lastContact
             if(nargin>2)
                 obj.ySim = y0;
             end
             if(isempty(obj.ySim))
                 y = sparse([obj.nodePoints; zeros(size(obj.nodePoints))]);
+                lastContact = obj.nodePoints(:,1:2);
             else
                 y = obj.ySim;
             end
             dt = obj.delT;
+ 
+
+
+
+            %friction model constants
+            Kp = 20000;
+            Kd = 5000;
+            muS = 0.64;
+            muD = 0.54;
+            kk = 1000;
+            kFP = 5000;
+            kFD = 0;
             %getStateDerivative(obj.simStruct);
             sim = obj.simStruct;
             groundH = obj.groundHeight;
@@ -218,6 +232,7 @@ classdef TensegrityStructure < handle
                 k_4 = getAccel(yy+(yDot-yDot1+yDot2)*dt,yDot3);
                 yy = yy + (dt/8)*(yDot+3*(yDot1+yDot2)+yDot3);  % main equation
                 yDot = yDot + (dt/8)*(k_1+3*(k_2+k_3)+k_4);  % main equation
+                lastContact(staticNotApplied,:) = yy(staticNotApplied,1:2);
             end
             obj.ySim =[yy;yDot];
             
@@ -228,14 +243,24 @@ classdef TensegrityStructure < handle
                 memberVel = sum(memberNodeXYZ.*memberNodeXYZdot,2);
                 Q = stiffness.*(restLengths ./ lengths-1) - damping.*memberVel;
                 Q((isString & (restLengths>lengths | Q>0))) = 0;                
-                FF = CC*(memberNodeXYZ.*Q(:,[1 1 1]));
-                normForces = -50000*(nodeXYZ(:,3) - groundH);
-                normForces(normForces<0) = 0;
+                FF = CC*(memberNodeXYZ.*Q(:,[1 1 1]));            
+                %update points not in contact
+                notTouching = (nodeXYZ(:,3) - groundH)>0;
+                %Compute normal forces
+                normForces = (groundH-nodeXYZ(:,3)).*(Kp - Kd*nodeXYZdot(:,3)); 
+                normForces(notTouching) = 0; %norm forces not touching are zero
                 xyDot = nodeXYZdot(:,1:2);
+                %Possible static friction to apply
+                staticF = kFP*(lastContact - nodeXYZ(:,1:2)) - kFD*xyDot;
+                staticNotApplied = (sum((staticF).^2,2) > (muS*normForces).^2)|notTouching;
+                staticF(staticNotApplied,:) = 0;
                 xyDotMag = sqrt(sum((xyDot).^2,2));
-                frictionDensity =  -0.5*normForces./xyDotMag;
-                frictionDensity(xyDotMag < 0.000001) = 0;
-                tangentForces = xyDot.*frictionDensity(:,[1 1]);
+                w = (1 - exp(-kk*xyDotMag))./xyDotMag;
+                w(xyDotMag<1e-9) = kk;
+                dynamicFmag =  - muD * normForces .*w ;
+                dynamicF = dynamicFmag(:,[1 1]).* xyDot;  
+                dynamicF(~staticNotApplied,:) = 0;
+                tangentForces = staticF + dynamicF ;
                 groundForces = [tangentForces normForces];
                 nodeXYZdoubleDot = (FF+groundForces).*M;
                 nodeXYZdoubleDot(:,3) = nodeXYZdoubleDot(:,3) -9.81;
@@ -288,8 +313,6 @@ classdef TensegrityStructure < handle
             Q_noise = 0.01^2*eye(L); %process noise covariance matrix
             R_noise = 0.05^2*eye(m); %measurement noise covariance matrix
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            
-            
             groundH = obj.groundHeight;
             M = sim.M;
             stiffness = [sim.stringStiffness; sim.barStiffness];
@@ -363,7 +386,9 @@ classdef TensegrityStructure < handle
                 xyDotMag = reshape(xyDotMag,nUKF,[]).';
                 xyDot = reshape(xyDot,2*nUKF,[])';
                 frictionDensity =  -0.5*normForces./xyDotMag;
-                frictionDensity(xyDotMag < 0.000001) = 0;
+                
+                
+                frictionDensity(xyDotMag < 0.0001) = 0;
                 tangentForces = xyDot.*frictionDensity(:,Gindex);
                 groundForces = [tangentForces normForces];
                 groundForces = groundForces(:,fIndex);

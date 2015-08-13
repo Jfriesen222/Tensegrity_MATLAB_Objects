@@ -4,7 +4,7 @@ out = timerfind;
 delete(out);
 
 %General matlab clearing
-clc; close all; clear all
+clc; close all; clear all;
 addpath('..\tensegrityObjects')
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters
@@ -13,18 +13,18 @@ N =5;                % Number of tetrahedrons
 
 tspan =0.05;          % time between plot updates in seconds
 delT = 0.0005;         % timestep for dynamic sim in seconds
-K = 3000;             %outer rim string stiffness in Newtons/meter
-c = 4000;             % damping constant, too lazy to figure out units.
+K = 1000;             %outer rim string stiffness in Newtons/meter
+c = 1000;             % damping constant, too lazy to figure out units.
 % set by hand waving until model looks reasonable
 lims = 4/30*3.5*N/5;  % Axes limits for plotting some arbitrary
 % scaling to fit axes as you increase the
 % number of tetrahedrons
-minQ = 50*N;          %  minimum force density in N/meter
+minQ = 25*N;          %  minimum force density in N/meter
 % (amount of force per unit length in a member)
 
 %This is used for setting the stiffness of cables in the model, here I set
 %saddle cables to be 50 times stiffer than the 6 outer rim cables
-stringMultiples = repmat([1 1 1 1 1 1 50 50 50 50 50 50],1,N-1)';
+stringMultiples = repmat([1 1 1 1 1 1 25 25 25 25 25 25],1,N-1)';
 
 stringStiffness = K*stringMultiples; %String stiffness vector in Newtons/meter
 %needs to be ss by 1 where ss is the
@@ -35,7 +35,7 @@ stringDamping = c*ones((N-1)*12,1);  %string damping vector
 %needs to be ss by 1 where ss is the
 %number of strings
 nodalMass = 0.1*ones(N*7,1); % point mass is placed at each node with this magnitude in kg
-nodalMass(1:7) = zeros(7,1);  % set fixed nodes mass to zero
+%nodalMass(1:7) = zeros(7,1);  % set fixed nodes mass to zero
 
 g = 9.81; %m/s^2 acelration due to gravity
 
@@ -202,10 +202,9 @@ spineUpdates = @(vec) hexSpineUpdate(vec);
 % for i = 1:300
 %    timerUpdate(calls,spineUpdates)
 % end
-
 t = timer;
 t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
 t.Period = tspan;
 t.ExecutionMode = 'fixedRate';
 start(t);
-
+% 
