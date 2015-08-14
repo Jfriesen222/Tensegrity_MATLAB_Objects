@@ -48,6 +48,7 @@ F(2:2:7,3)= ([-0.5, 0; -0.25, 0.5; -0.25, 0.5]./spineNodes(2:2:7,[2 1]))*sumMome
 F(isnan(F))=0;%some times we devide zero by zero so we set inf to 0
 F(1,:) = -sum(F(2:end,:),1); %set the base node to make sum F in x y and z zero
 spine.F = F;
+disp(F)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%Compute Command and update dynamics if feasible command is generated%%%%%%%

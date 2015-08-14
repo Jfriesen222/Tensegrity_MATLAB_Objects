@@ -45,7 +45,7 @@ g = 9.81; %m/s^2 acelration due to gravity
 F = [zeros(N*7,1), zeros(N*7,1), [zeros(7,1); -nodalMass(8:end)*9.81]];
 %Generate reaction forces for vertical columns
 F(1:7,3) = sum(F(:,3))*ones(7,1)/7;
-
+F = zeros(size(F))
 barStiffness = 100000*ones(N*18,1); %bar stiffness vector
 %needs to be bb by 1 where bb is the
 %number of bars

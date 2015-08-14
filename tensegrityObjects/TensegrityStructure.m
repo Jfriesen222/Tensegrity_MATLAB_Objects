@@ -207,8 +207,8 @@ classdef TensegrityStructure < handle
             muS = 0.64;
             muD = 0.54;
             kk = 1000;
-            kFP = 5000;
-            kFD = 0;
+            kFP = 20000;
+            kFD = 5000;
             %getStateDerivative(obj.simStruct);
             sim = obj.simStruct;
             groundH = obj.groundHeight;
