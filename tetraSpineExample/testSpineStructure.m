@@ -9,7 +9,7 @@ clc; close all; clear variables
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters
 rad = 0.0075;         % Radius of bars in plot in meters
-N =12 ;                % Number of tetrahedrons
+N =5 ;                % Number of tetrahedrons
 
 tspan =0.05;          % time between plot updates in seconds
 delT = 0.0005;         % timestep for dynamic sim in seconds
@@ -35,7 +35,7 @@ stringDamping = c*ones((N-1)*9,1);  %string damping vector
 %needs to be ss by 1 where ss is the
 %number of strings
 nodalMass = 0.25*ones(N*4,1); % point mass is placed at each node with this magnitude in kg
-%nodalMass(1:4) = zeros(4,1);  % set fixed nodes mass to zero
+nodalMass(1:4) = zeros(4,1);  % set fixed nodes mass to zero
 
 g = 9.81; %m/s^2 acelration due to gravity
 
@@ -197,13 +197,13 @@ spineUpdate(vec1,...
 spineUpdates = @(vec) spineUpdate(vec);
 %Create a timer to update everything, 20 fps should
 %look smooth prob best not to go below this
-% for i = 1:300
-%    timerUpdate(calls,spineUpdates)
-% end
+for i = 1:100
+   timerUpdate(calls,spineUpdates)
+end
 
-t = timer;
-t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
-t.Period = tspan;
-t.ExecutionMode = 'fixedRate';
-start(t);
+% t = timer;
+% t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
+% t.Period = tspan;
+% t.ExecutionMode = 'fixedRate';
+% start(t);
 

@@ -9,44 +9,45 @@ addpath('..\tensegrityObjects')
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters
 rad = 0.0075;         % Radius of bars in plot in meters
-N =5;                % Number of tetrahedrons
+N = 3;                % Number of tetrahedrons
 
 tspan =0.05;          % time between plot updates in seconds
 delT = 0.0005;         % timestep for dynamic sim in seconds
-K = 1000;             %outer rim string stiffness in Newtons/meter
+K = 2000;             %outer rim string stiffness in Newtons/meter
 c = 1000;             % damping constant, too lazy to figure out units.
 % set by hand waving until model looks reasonable
-lims = 4/30*3.5*N/5;  % Axes limits for plotting some arbitrary
+lims = 2*( 4/30*3.5*N/5);  % Axes limits for plotting some arbitrary
 % scaling to fit axes as you increase the
 % number of tetrahedrons
-minQ = 25*N;          %  minimum force density in N/meter
+minQ = 100*N;          %  minimum force density in N/meter
 % (amount of force per unit length in a member)
 
 %This is used for setting the stiffness of cables in the model, here I set
 %saddle cables to be 50 times stiffer than the 6 outer rim cables
-stringMultiples = repmat([1 1 1 1 1 1 25 25 25 25 25 25],1,N-1)';
+stringMultiples = repmat([1 1 1 1 1 1 25 25 25 25 25 25],1,2*(N-1))';
 
 stringStiffness = K*stringMultiples; %String stiffness vector in Newtons/meter
 %needs to be ss by 1 where ss is the
 %number of strings
 
 
-stringDamping = c*ones((N-1)*12,1);  %string damping vector
+stringDamping = c*ones(2*(N-1)*12,1);  %string damping vector
 %needs to be ss by 1 where ss is the
 %number of strings
-nodalMass = 0.1*ones(N*7,1); % point mass is placed at each node with this magnitude in kg
-%nodalMass(1:7) = zeros(7,1);  % set fixed nodes mass to zero
+nodalMass = 0.1*ones(2*N*7 - 6,1); % point mass is placed at each node with this magnitude in kg
+%nodalMass([1:7 ((1:7)+N*7)]) = 0;  % set fixed nodes mass to zero
 
 g = 9.81; %m/s^2 acelration due to gravity
 
 %Newtons Loading of the tetrahedrons used in inverse kinematics,
 %currently configured just to hold up their own mass
 %Should be 3 by n where n is the number of nodes
-F = [zeros(N*7,1), zeros(N*7,1), [zeros(7,1); -nodalMass(8:end)*9.81]];
+F = [zeros(2*N*7-6,1), zeros(2*N*7-6,1), [zeros(7,1); -nodalMass(8:end)*9.81]];
+
 %Generate reaction forces for vertical columns
 F(1:7,3) = sum(F(:,3))*ones(7,1)/7;
-F = zeros(size(F))
-barStiffness = 100000*ones(N*18,1); %bar stiffness vector
+F = zeros(size(F));
+barStiffness = 100000*ones(2*N*18-12,1); %bar stiffness vector
 %needs to be bb by 1 where bb is the
 %number of bars
 
@@ -68,7 +69,7 @@ quatBend = [cos(angle), sin(angle)*[sin(axisRot) cos(axisRot) 0]];
 quatt = quatmultiply(quatBend,quatTwist);
 
 %create an N by 4 matrix of quaternons to pass to getSpineNodes
-quats = [1 0 0 0;
+quats = [0.71 0 0.71 0;
     repmat(quatt,N-1,1)];
 
 %%%%%%%%% Get all nodal positions for spine %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,16 +85,16 @@ spineNodes = getHexSpineNodes(r,h,NR,quats);
 % node # but the TensegrityStructure class will fix this if you mess up.
 
 %String #'s:  1 2 3 4 5 6 7 8 9
-stringList = [3 3  5  5  7  7 2 3 4 5 6 7;
-              9 11 11 13 13 9 8 8 8 8 8 8];
+stringList = [3 3  5  5  7  7 9 10 11 12 13 14;
+              9 11 11 13 13 9 1  1  1  1  1  1];
 stringNodes = zeros(2,(N-1)*9);
 for i = 0:(N-2)
     %Here we are replicating the pattern of string connectivity for an N
     %number spine
     stringNodes(:,(1:12)+12*(i)) = stringList + 7*i;
 end
-
-
+stringNodes = [stringNodes (stringNodes+N*7)];
+disp(stringNodes)
 %Bar #'s:  1 2 3 4 5 6
 barList = [1 1 1 1 1 1 2 3 4 5 6 7 2 4 6 3 5 7;
            2 3 4 5 6 7 3 4 5 6 7 2 4 6 2 5 7 3];
@@ -105,6 +106,19 @@ for i = 0:(N-1)
     barNodes(:,(1:18)+18*(i)) = barList + 7*i;
     plotBarNodes(:,(1:12)+12*(i)) = barList(:,1:end-6) + 7*i;
 end
+barNodes = [barNodes (barNodes+N*7)];
+plotBarNodes = [plotBarNodes (plotBarNodes+N*7)];
+for i = 2:7
+barNodes(barNodes == i+N*7) = i;
+plotBarNodes(plotBarNodes == i+N*7) = i;
+stringNodes(stringNodes == i+N*7) = i;
+end
+stringNodes(stringNodes>N*7+1) = stringNodes(stringNodes>N*7+1)-6;
+barNodes(:,(7:18)+N*18) = [];
+barNodes(barNodes>N*7+1) = barNodes(barNodes>N*7+1)-6;
+plotBarNodes(:,(7:12)+N*12) = [];
+plotBarNodes(plotBarNodes>N*7+1) = plotBarNodes(plotBarNodes>N*7+1)-6;
+disp(size(barNodes))
 
 %%%%%%%%%%%%%% Create objects for spine IK/dynamics, and plotting objects %%%%%%
 % Pass all variables to the TensegrityStructure constructor to create the
@@ -116,8 +130,8 @@ spine = TensegrityStructure(spineNodes, stringNodes, barNodes, F,stringStiffness
 %Pass variables to the constructor to create two different TensegrityPlot
 %objects for plotting the IK command as well as the dynamic response of the
 %structure to that command
-spineCommandPlot = TensegrityPlot(spineNodes, stringNodes, plotBarNodes, 0.005,0.001);
-spineDynamicsPlot = TensegrityPlot(spineNodes, stringNodes, plotBarNodes, 0.005,0.001);
+spineCommandPlot = TensegrityPlot(spineNodes, stringNodes, plotBarNodes  , 0.005,0.001);
+spineDynamicsPlot = TensegrityPlot(spineNodes, stringNodes, plotBarNodes , 0.005,0.001);
 
 %Make sure to call this function once before initializing the dynamics
 %because it will update the rest lengths
@@ -146,7 +160,7 @@ lighting gouraud
 colormap cool% winter
 xlim([-lims lims])
 ylim([-lims lims])
-zlim([-0.01 1.5*lims])
+zlim([-0.01 1.6*lims])
 title('Static IK Command');
 
 
@@ -168,7 +182,7 @@ light('Position',[0 0 1],'Style','local')
 lighting flat
 xlim([-lims lims])
 ylim([-lims lims])
-zlim([-0.01 1.5*lims])
+zlim([-0.01 1.6*lims])
 title('Dynamics Simulation');
 set(gca,'xtick',[-100:0.2:100])
 set(gca,'ytick',[-100:0.2:100])
@@ -199,12 +213,12 @@ hexSpineUpdate(vec1,...
 spineUpdates = @(vec) hexSpineUpdate(vec);
 %Create a timer to update everything, 20 fps should
 %look smooth prob best not to go below this
-% for i = 1:300
-%    timerUpdate(calls,spineUpdates)
-% end
-t = timer;
-t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
-t.Period = tspan;
-t.ExecutionMode = 'fixedRate';
-start(t);
-% 
+for i = 1:100
+   timerUpdate(calls,spineUpdates)
+end
+% t = timer;
+% t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
+% t.Period = tspan;
+% t.ExecutionMode = 'fixedRate';
+% start(t);
+

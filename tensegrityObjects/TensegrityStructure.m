@@ -79,17 +79,17 @@ classdef TensegrityStructure < handle
             
             %%%%%%%%%%%%%%% Check barNodes for errors %%%%%%%%%%%%%%%%%
             
-                    obj.bb = size(barNodes,2);
-                    for i= 1:obj.bb
-                        if barNodes(1,i) == barNodes(2,i)
-                            error('barnodes has identical entries in a column')
-                        else if barNodes(1,i) > barNodes(2,i)
-                                barNodes(1:2,i) = barNodes(2:-1:1,i);
-                            end
-                        end
+            obj.bb = size(barNodes,2);
+            for i= 1:obj.bb
+                if barNodes(1,i) == barNodes(2,i)
+                    error('barnodes has identical entries in a column')
+                else if barNodes(1,i) > barNodes(2,i)
+                        barNodes(1:2,i) = barNodes(2:-1:1,i);
                     end
-                    obj.barNodes = barNodes;
-                   
+                end
+            end
+            obj.barNodes = barNodes;
+            
             
             %%%%%%%%%%%%% Check for repeat bars or strings %%%%%%%%%%%%%
             B = unique([stringNodes barNodes]', 'rows');
@@ -130,8 +130,8 @@ classdef TensegrityStructure < handle
                 topNb = [];
                 botNb =[];
             else
-            topNb = obj.barNodes(1,:);
-            botNb = obj.barNodes(2,:);
+                topNb = obj.barNodes(1,:);
+                botNb = obj.barNodes(2,:);
             end
             topNs = obj.stringNodes(1,:);
             botNs = obj.stringNodes(2,:);
@@ -140,7 +140,6 @@ classdef TensegrityStructure < handle
             fN = indexes(nodalMass<=0);
             barNodeXYZ =  obj.nodePoints(topNb,:) - obj.nodePoints(botNb,:);
             barLengths = sum((barNodeXYZ.*barNodeXYZ),2).^0.5;
-            %obj.simStruct.topNb = obj.barNodes(1,:);
             obj.simStruct = struct('M',M,'fN',fN,'stringStiffness',stringStiffness,...
                 'barStiffness',barStiffness,'C',obj.C,'barRestLengths',barLengths,'stringDamping',stringDamping,...
                 'topNb',topNb,'botNb',botNb,'topNs',topNs,'botNs',botNs,'stringRestLengths',stringRestLengths);
@@ -154,19 +153,24 @@ classdef TensegrityStructure < handle
         end
         
         function staticTensions = getStaticTensions(obj,minForceDensity)
-            A= [obj.C' *diag(obj.C*obj.nodePoints(:,1));
+            A= sparse([obj.C' *diag(obj.C*obj.nodePoints(:,1));
                 obj.C' *diag(obj.C*obj.nodePoints(:,2));
-                obj.C' *diag(obj.C*obj.nodePoints(:,3))];
-            A_g = pinv(A);
+                obj.C' *diag(obj.C*obj.nodePoints(:,3))]);
+            [~,RR,e] = qr(A,'vector');
+            RR = RR(:,e);
+            tol = max(size(A)) * eps(norm(diag(RR),inf));
+            R = RR(diag(RR)>tol,:);
+            A_g = R\(R'\A');
             A_g_A=A_g*A;
-            V=(eye(size(A_g_A,2))-A_g_A);
+            V=sparse((eye(size(A_g_A,2))-A_g_A));
             [V,R,~] = qr(V(1:obj.ss,:));
+            V = sparse(V);
             R =diag(R);
-            V = V(:,abs(R) > 10^-12);
-            Hqp = V'*V;
+            V = V(:,abs(R) > tol);
+            Hqp = sparse(V'*V);
             fqp = V'*A_g(1:obj.ss,:)*obj.F(:);
             Aqp = -V;
-            bqp = A_g(1:obj.ss,:)*obj.F(:) - minForceDensity;
+            bqp = sparse(A_g(1:obj.ss,:)*obj.F(:) - minForceDensity);
             w = quadprog(Hqp,fqp,Aqp,bqp,[],[],[],[],[],obj.quadProgOptions);
             q=A_g(1:obj.ss,:)*obj.F(:) + V*w;
             lengths = sum((obj.nodePoints(obj.simStruct.topNs,:) - obj.nodePoints(obj.simStruct.botNs,:)).^2,2).^0.5;
@@ -196,11 +200,8 @@ classdef TensegrityStructure < handle
             else
                 y = obj.ySim;
             end
-            dt = obj.delT;
- 
-
-
-
+            dt = obj.delT;           
+            
             %friction model constants
             Kp = 20000;
             Kd = 5000;
@@ -209,7 +210,7 @@ classdef TensegrityStructure < handle
             kk = 1000;
             kFP = 20000;
             kFD = 5000;
-            %getStateDerivative(obj.simStruct);
+
             sim = obj.simStruct;
             groundH = obj.groundHeight;
             M = sim.M; fN = sim.fN;
@@ -242,12 +243,13 @@ classdef TensegrityStructure < handle
                 lengths = sqrt(sum((memberNodeXYZ).^2,2));
                 memberVel = sum(memberNodeXYZ.*memberNodeXYZdot,2);
                 Q = stiffness.*(restLengths ./ lengths-1) - damping.*memberVel;
-                Q((isString & (restLengths>lengths | Q>0))) = 0;                
-                FF = CC*(memberNodeXYZ.*Q(:,[1 1 1]));            
+                Q((isString & (restLengths>lengths | Q>0))) = 0;
+                GG = (memberNodeXYZ.*Q(:,[1 1 1]));
+                FF = CC*GG;
                 %update points not in contact
                 notTouching = (nodeXYZ(:,3) - groundH)>0;
                 %Compute normal forces
-                normForces = (groundH-nodeXYZ(:,3)).*(Kp - Kd*nodeXYZdot(:,3)); 
+                normForces = (groundH-nodeXYZ(:,3)).*(Kp - Kd*nodeXYZdot(:,3));
                 normForces(notTouching) = 0; %norm forces not touching are zero
                 xyDot = nodeXYZdot(:,1:2);
                 %Possible static friction to apply
@@ -258,7 +260,7 @@ classdef TensegrityStructure < handle
                 w = (1 - exp(-kk*xyDotMag))./xyDotMag;
                 w(xyDotMag<1e-9) = kk;
                 dynamicFmag =  - muD * normForces .*w ;
-                dynamicF = dynamicFmag(:,[1 1]).* xyDot;  
+                dynamicF = dynamicFmag(:,[1 1]).* xyDot;
                 dynamicF(~staticNotApplied,:) = 0;
                 tangentForces = staticF + dynamicF ;
                 groundForces = [tangentForces normForces];
@@ -269,49 +271,54 @@ classdef TensegrityStructure < handle
         end
         
         function ukfUpdate(obj,tspan,y0)
+            persistent lastContact
             sim = obj.simStructUKF;
             nUKF = sim.nUKF;
-            %              xyI = [1:3:3*nUKF; 2:3:3*nUKF];
-            %              xyI = xyI(:);
-            fIndex = [1:2:nUKF*2; 2:2:nUKF*2; (2*nUKF+1):nUKF*3];
-            fIndex = fIndex(:);
-            Qindex = [1:nUKF; 1:nUKF; 1:nUKF];
-            Qindex = Qindex(:);
-            Gindex = [1:nUKF; 1:nUKF];
-            Gindex = Gindex(:);
+            
+            fIndex = [1:2:nUKF*2; 2:2:nUKF*2; (2*nUKF+1):nUKF*3]; fIndex = fIndex(:);
+            Qindex = [1:nUKF; 1:nUKF; 1:nUKF]; Qindex = Qindex(:);
+            Gindex = [1:nUKF; 1:nUKF]; Gindex = Gindex(:);
+            ind1 = 1:3:3*nUKF; ind2 = ind1+1; ind3 = ind1+2; ind12 = [ind1; ind2]; ind12 = ind12(:);
+            ind11 = 1:2:2*nUKF; ind22 = 2:2:2*nUKF;
+            
             if(nargin>2)
                 obj.ySimUKF = y0;
             end
             if(isempty(obj.ySimUKF))
                 obj.ySimUKF = [obj.nodePoints; zeros(size(obj.nodePoints))];
                 obj.P = eye((nUKF-1)/2);
+                lastContact = repmat(obj.nodePoints(:,1:2),1,nUKF);
             else
                 y = obj.ySimUKF;
             end
             dt = obj.delTUKF;
             
-            %%%%%%%%%%%%% ukf variables %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            z =  obj.measurementUKFInput(:);
-            x = obj.ySimUKF(:);
-            L = (nUKF-1)/2;
-            LI = obj.lengthMeasureIndices;
-            m = size(LI,2);
-            alpha=1e-3;                                 %default, tunable
-            beta=2;                                     %default, tunable
-            lambda= 2-L;%alpha^2*(L+ki)-L;                    %scaling factor
-            c=L+lambda;                                 %scaling factor
+            %friction model constants
+            Kp = 20000;  Kd = 5000;  muS = 0.64;  muD = 0.54; kk = 1000; kFP = 20000; kFD = 5000;
+            
+            %%%%%%%%%%%%% ukf tuning variables %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            z =  obj.measurementUKFInput(:); x = obj.ySimUKF(:);
+            L = (nUKF-1)/2; LI = obj.lengthMeasureIndices;
+            m = size(z,1);
+            alpha=2/L; beta=2;
+            ki = 0;
+            lambda=alpha^2*(L+ki)-L;
+            c=L+lambda;
             Ws=[lambda/c 0.5/c+zeros(1,2*L)];
             fN = sim.fN;
-            Wc=Ws;
-            Wc(1) = Wc(1)+(1-alpha^2+beta^2);
+            Wc=Ws;  Wc(1) = Wc(1)+(1-alpha^2+beta^2);
             c=sqrt(c);
+            
+            %Compute the UKF sigmas
             X=sigmas(x,obj.P,c);
             X = reshape(X,obj.n*2,[]);
-            xx = reshape(x,obj.n*2,[]);
-            X(fN,:) = repmat(xx(fN,:),1,nUKF);
-            X(fN+obj.n,:) = 0;
-            Q_noise = 0.01^2*eye(L); %process noise covariance matrix
-            R_noise = 0.05^2*eye(m); %measurement noise covariance matrix
+            xx = reshape(x,obj.n*2,[]); %precursor to keep fixed nodes in pla
+            X(fN,:) = repmat(xx(fN,:),1,nUKF); %Used to keep fixed nodes in place
+            X(fN+obj.n,:) = 0; %set velocities of fixed nodes to zero
+            
+            Q_noise = 0.0015^2*eye(L); %process noise covariance matrix
+            R_noise = blkdiag(0.01^2*eye(6),0.05^2*eye(m-6)); %measurement noise covariance matrix
+            
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             groundH = obj.groundHeight;
             M = sim.M;
@@ -322,10 +329,6 @@ classdef TensegrityStructure < handle
             topN = [sim.topNs sim.topNb];
             botN = [sim.botNs sim.botNb];
             isString = [ones(obj.ss,nUKF); zeros(obj.bb,nUKF)];
-            
-            
-            ind1 = 1:3:3*nUKF; ind2 = ind1+1; ind3 = ind1+2;
-            
             yy = X(1:end/2,:);
             yDot = X((1:end/2)+end/2,:);
             
@@ -339,57 +342,63 @@ classdef TensegrityStructure < handle
                 k_4 = getAccels(yy+(yDot-yDot1+yDot2)*dt,yDot3);
                 yy = yy + (dt/8)*(yDot+3*(yDot1+yDot2)+yDot3);  % main equation
                 yDot = yDot + (dt/8)*(k_1+3*(k_2+k_3)+k_4);  % main equation
+                xys = yy(:,ind12);
+                lastContact(staticNotApplied(:,Gindex)) = xys(staticNotApplied(:,Gindex));
             end
             
             %%%%%%%%%%%%%% Unscented Transformation of Process %%%%%%%%%%%%
-            
             X1 =[yy;yDot]; %Forward propagated particles
             X1 = reshape(X1,obj.n*6,[]);
             x1 = X1*Ws';    %Weighted average of forward propagated particles
             X2 = X1 - x1(:,ones(1,nUKF)); %Particles with average subtracted
             P1 = X2*diag(Wc)*X2'+Q_noise; %State covariance?
             
-            
             %%%%%%%%%%%%% Unscented Transformation of Measurements %%%%%%%%
+            barVec = memberNodeXYZ((obj.ss+1):(obj.bb+obj.ss),:);
+            barNorm = sqrt(barVec(:,ind1).^2 + barVec(:,ind2).^2 + barVec(:,ind3).^2);
+            barAngleFromVert = acos(barVec(:,3:3:end)./barNorm);
+            
             yyPlusBase = [yy; repmat(obj.baseStationPoints,1,nUKF)];
-            %disp(size(yy))
             allVectors = (yyPlusBase(LI(1,:),:) - yyPlusBase(LI(2,:),:)).^2;
-            Z1 = sqrt(allVectors(:,ind1) + allVectors(:,ind2) + allVectors(:,ind3));
-            % this is if you have xyz coord -> Z1 = reshape(yy,m,[]); %Measurements are just x-y-z coord for now
+            lengthMeasures = sqrt(allVectors(:,ind1) + allVectors(:,ind2) + allVectors(:,ind3));
+            Z1 = [barAngleFromVert;
+                lengthMeasures];
+            % this is if you have xyz coord -> Z1 = reshape(yy,m,[]);
             z1 = Z1*Ws'; %Weighted average of forward propagated measurements
             Z2 = Z1 - z1(:,ones(1,nUKF)); %Measuremnets with average subtracted
             P2 = Z2*diag(Wc)*Z2'+R_noise; %Measurement covariance
-            
             P12=X2*diag(Wc)*Z2'; %Transformed cross covariance matrix
-            %P2_inv = pinv(P2);
             K=P12/P2;
             x=x1+K*(z-z1);                              %state update
             obj.P = P1 -K*P12';                                %covariance update
-            obj.ySimUKF = reshape(x,[],3);
+            obj.ySimUKF = reshape(x,[],3);            
             
             function nodeXYZdoubleDot = getAccels(nodeXYZs,nodeXYZdots)
                 memberNodeXYZ = nodeXYZs(topN,:) - nodeXYZs(botN,:);
                 memberNodeXYZdot = nodeXYZdots(topN ,:) - nodeXYZdots(botN,:);
                 memNodeXYZsq = memberNodeXYZ.^2;
                 memNodeXYZdotProd = memberNodeXYZdot.* memberNodeXYZ;
-                lengths = sqrt(memNodeXYZsq(:,ind1) + memNodeXYZsq(:,ind2) + memNodeXYZsq(:,ind3));
-                memberVel = memNodeXYZdotProd(:,ind1) + memNodeXYZdotProd(:,ind2) + memNodeXYZdotProd(:,ind3);
+                lengths = sqrt(memNodeXYZsq(:,ind1) + memNodeXYZsq(:,ind2) + memNodeXYZsq(:,ind3)); %member lengths
+                memberVel = memNodeXYZdotProd(:,ind1) + memNodeXYZdotProd(:,ind2) + memNodeXYZdotProd(:,ind3); %linear velocities along member
                 Q = stiffness.*(restLengths ./ lengths-1) - damping.*memberVel; %compute force densities
-                Q((isString & (restLengths>lengths | Q>0))) = 0;
-                GG = memberNodeXYZ.*Q(:,Qindex);
-                FF = CC*GG;
-                normForces = -25000*(nodeXYZs(:,3:3:end) - groundH);
-                normForces(normForces<0) = 0;
-                nodeXYZdotVert = reshape(nodeXYZdots',3,[]);
-                xyDot = nodeXYZdotVert(1:2,:);
-                xyDotMag = sqrt(sum((xyDot).^2,1));
-                xyDotMag = reshape(xyDotMag,nUKF,[]).';
-                xyDot = reshape(xyDot,2*nUKF,[])';
-                frictionDensity =  -0.5*normForces./xyDotMag;
-                
-                
-                frictionDensity(xyDotMag < 0.0001) = 0;
-                tangentForces = xyDot.*frictionDensity(:,Gindex);
+                Q((isString & (restLengths>lengths | Q>0))) = 0; %slack strings apply no forces
+                GG = memberNodeXYZ.*Q(:,Qindex); %member vector forces
+                FF = CC*GG; %Multiply member XYZ forces by transpose of connectivity matrix to get nodal forces
+                penetration = groundH - nodeXYZs(:,3:3:end);
+                notTouching = (penetration)<0; %see which nodes are penetrating ground
+                normForces = (penetration).*(Kp - Kd*nodeXYZdots(:,3:3:end)); %Compute normal forces
+                normForces(notTouching) = 0; %norm forces not touching are zero
+                xyDotMag = sqrt(nodeXYZdots(:,ind1).^2 + nodeXYZdots(:,ind2).^2 );
+                xyDot = nodeXYZdots(:,ind12);
+                staticF = kFP*(lastContact - nodeXYZs(:,ind12)) - kFD*xyDot;
+                staticNotApplied = ((staticF(:,ind11).^2 +  staticF(:,ind22).^2) > (muS*normForces).^2)|notTouching;
+                staticF(staticNotApplied(:,Gindex)) = 0;
+                w = (1 - exp(-kk*xyDotMag))./xyDotMag;
+                w(xyDotMag<1e-9) = kk;
+                dynamicFmag =  - muD * normForces .*w ;
+                dynamicFmag(~staticNotApplied) = 0;
+                dynamicF = dynamicFmag(:,Gindex).* xyDot;
+                tangentForces = staticF + dynamicF ;
                 groundForces = [tangentForces normForces];
                 groundForces = groundForces(:,fIndex);
                 nodeXYZdoubleDot = (FF+groundForces).*M;
@@ -411,6 +420,7 @@ function X=sigmas(x,P,c)
 %       X: Sigma points
 
 A = c*chol(P)';
-Y = x(:,ones(1,numel(x)));
+disp(size(cholcov(P)))
+Y = x(:,ones(1,size(A,1)));
 X = [x Y+A Y-A];
 end

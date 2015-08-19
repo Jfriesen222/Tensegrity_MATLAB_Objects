@@ -5,7 +5,6 @@ function hexSpineUpdate(vec,spine1,spineCommandPlot1,spineDynamicsPlot1,pStruct1
 %create some persistent variables for objects and structs
 persistent spine spineCommandPlot spineDynamicsPlot pStruct axisRot
 
-
 if nargin>1
     spine = spine1;
     axisRot = 0;
@@ -18,7 +17,7 @@ end
 % set variables from persistent structure
 r = pStruct.r; h = pStruct.h; N = pStruct.N; minQ = pStruct.minQ; tspan = pStruct.tspan;
 % set variables from sliders below
-angle = vec(1); axisRot = axisRot+vec(2)/10; twist = vec(3); NR = vec(4);
+angle = vec(1); axisRot = axisRot+vec(2)/5; twist = vec(3); NR = vec(4);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -48,7 +47,6 @@ F(2:2:7,3)= ([-0.5, 0; -0.25, 0.5; -0.25, 0.5]./spineNodes(2:2:7,[2 1]))*sumMome
 F(isnan(F))=0;%some times we devide zero by zero so we set inf to 0
 F(1,:) = -sum(F(2:end,:),1); %set the base node to make sum F in x y and z zero
 spine.F = F;
-disp(F)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%Compute Command and update dynamics if feasible command is generated%%%%%%%
@@ -61,12 +59,12 @@ spineDynamicsPlot.nodePoints = spine.ySim(1:end/2,:);
 updatePlot(spineDynamicsPlot);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-lims = 4/30*3.5*N/5;
+lims = 2*4/30*3.5*N/5;
 x_Avg = mean(spine.ySim(1:end/2,1));
+%z_Avg = mean(spine.ySim(1:end/2,3));
 y_Avg = mean(spine.ySim(1:end/2,2));
-xlim([-lims lims]+x_Avg)
-ylim([-lims lims]+y_Avg)
-
+ xlim([-lims lims]+x_Avg)
+ ylim([-lims lims]+y_Avg)
 drawnow %plot it up
 end
 
