@@ -171,9 +171,7 @@ ax = subplot(1,2,2,'Parent',f,'units','normalized','outerposition',...
 % use a method within TensegrityPlot class to generate a plot of the
 % structure
 generatePlot(spineDynamicsPlot,ax)
-% x = [-1 1 1 -1];
-% y = [-1 -1 1 1];
-% patch(x,y,zeros(size(x)))
+
 %settings to make it pretty
 axis equal
 view(3)
@@ -213,12 +211,12 @@ hexSpineUpdate(vec1,...
 spineUpdates = @(vec) hexSpineUpdate(vec);
 %Create a timer to update everything, 20 fps should
 %look smooth prob best not to go below this
-for i = 1:100
-   timerUpdate(calls,spineUpdates)
-end
-% t = timer;
-% t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
-% t.Period = tspan;
-% t.ExecutionMode = 'fixedRate';
-% start(t);
+% for i = 1:100
+%    timerUpdate(calls,spineUpdates)
+% end
+t = timer;
+t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
+t.Period = tspan;
+t.ExecutionMode = 'fixedRate';
+start(t);
 

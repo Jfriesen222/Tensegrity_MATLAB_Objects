@@ -142,14 +142,16 @@ s = ((1+d)*2).^0.5;
 axis = vec(:,[2 1]);
 axis(:,1) = -axis(:,1);
 if(~isempty(isOtherVert))
-    axis(isOtherVert,:) = repmat([0.00001 0],size(isOtherVert,2),1);
+    axis(isOtherVert,:) = repmat(sin(pi-0.001)*[1 0],size(isOtherVert,2),1);
     s(isOtherVert) = ones(size(isOtherVert,2),1);
 end
 if(~isempty(isVert))
     axis(isVert,:) = repmat([1 0],size(isVert,2),1);
-    s(isVert) = 0.0001*ones(size(isVert,2),1);
+    s(isVert) = 0.0000001*ones(size(isVert,2),1);
 end
 qin = [0.5*s, axis./s(:,[1 1])];
+qinmag = sqrt(sum(qin.^2,2));
+qin = qin./qinmag(:,[1 1 1]);
 H1  = repmat(eye(4),1,1,n);
 H1(1,1,:) = qin(:,1).^2 + qin(:,2).^2 - qin(:,3).^2;
 H1(2,1,:) = 2.*(qin(:,2).*qin(:,3));

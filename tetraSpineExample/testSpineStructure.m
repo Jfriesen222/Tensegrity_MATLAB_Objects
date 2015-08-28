@@ -2,21 +2,20 @@
 %up
 out = timerfind;
 delete(out);
-
+addpath('..\tensegrityObjects')
 %General matlab clearing
 clc; close all; clear variables
-
 r = 0.10;             % Radius of top tetrahedron ring in meters
 h = 0.15;             % Height of tetrahedrn in meters
 rad = 0.0075;         % Radius of bars in plot in meters
-N =5 ;                % Number of tetrahedrons
+N = 2;                % Number of tetrahedrons
 
 tspan =0.05;          % time between plot updates in seconds
 delT = 0.0005;         % timestep for dynamic sim in seconds
 K = 10000;             %outer rim string stiffness in Newtons/meter
 c = 3000;             % damping constant, too lazy to figure out units.
 % set by hand waving until model looks reasonable
-lims = 4/30*3.5*N/5;  % Axes limits for plotting some arbitrary
+lims = 2*4/30*3.5*N/5;  % Axes limits for plotting some arbitrary
 % scaling to fit axes as you increase the
 % number of tetrahedrons
 minQ = 100*N;          %  minimum force density in N/meter
@@ -200,7 +199,7 @@ spineUpdates = @(vec) spineUpdate(vec);
 for i = 1:100
    timerUpdate(calls,spineUpdates)
 end
-
+% 
 % t = timer;
 % t.TimerFcn = @(myTimerObj, thisEvent) timerUpdate(calls,spineUpdates);
 % t.Period = tspan;
