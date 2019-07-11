@@ -214,6 +214,11 @@ classdef TensegrityStructure < handle
         
         %%%%%%%%%%%%%%%%%%% Dynamics Functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function dynamicsUpdate(obj,tspan,y0)
+        
+            % Fix to make the code run on Matlab2019b
+            % Shared variables in nested functions need to be defined in the parent function
+            staticNotApplied = 0;
+            
             persistent lastContact
             if(nargin>2)
                 obj.ySim = y0;
@@ -297,6 +302,12 @@ classdef TensegrityStructure < handle
         end
         
         function ukfUpdate(obj,tspan,y0)
+            
+            % Fix to make the code run on Matlab2019b
+            % Shared variables in nested functions need to be defined in the parent function
+            staticNotApplied = 0;
+            memberNodeXYZ = 0;
+            
             persistent lastContact
             sim = obj.simStructUKF;
             nUKF = sim.nUKF;
